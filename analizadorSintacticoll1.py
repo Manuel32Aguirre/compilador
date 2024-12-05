@@ -66,3 +66,4 @@ for head, alternatives in productions.items():
 print("\nConjuntos Primero:")
 for non_terminal, first_set in first_sets.items():
     print(f"Primero({non_terminal}) = {first_set}")
+#
