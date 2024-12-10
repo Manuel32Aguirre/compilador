@@ -122,56 +122,50 @@ def calcular_siguiente(producciones, terminales, no_terminales, simbolo_inicial,
             for regla in reglas:
                 print(f"\nAnalizando la producción {no_terminal} → {regla}")
 
-                # Analizar símbolo por símbolo del lado derecho
                 for i, simbolo in enumerate(regla):
                     if simbolo in no_terminales:
-                        print(f"\nProcesando el no-terminal '{simbolo}' en la posición {i}")
+                        print(f"  Procesando el no-terminal '{simbolo}' en la posición {i}")
+                        resto = regla[i + 1:]  # Lo que sigue después del no-terminal actual
 
-                        resto = regla[i + 1:]  # Todo lo que sigue después del no-terminal
-                        print(f"Resto después del símbolo '{simbolo}': {resto}")
-
-                        cadena_aux = ''  # Iniciamos cadena_aux vacío
-
-                        # Recorrer el resto y construir cadena_aux para compararlo con Primero
-                        for char in resto:
-                            cadena_aux += char
-                            print(f"Construyendo cadena_aux: '{cadena_aux}'")
-
-                            # Caso: Encontramos un terminal
-                            if char in terminales:
-                                print(f"Se encontró el terminal '{char}' después de '{simbolo}'")
-                                siguiente[simbolo].add(char)
-                                print(f"Agregando '{char}' a Siguiente({simbolo})")
-                                cadena_aux = ''  # Reiniciamos cadena_aux después de encontrar terminal
-                                break
-
-                            # Caso: Encontramos otro no-terminal
-                            elif char in no_terminales:
-                                print(f"Se encontró el no-terminal '{char}' después de '{simbolo}'")
-                                siguiente[simbolo].update(siguiente[char])
-                                print(f"Fusionamos Siguiente({char}) en Siguiente({simbolo})")
-                                cadena_aux = ''  # Reiniciamos cadena_aux después de otro no-terminal
-                                break
-
-                            else:
-                                print(f"El resto después del no-terminal '{simbolo}' no coincide con ningún terminal ni no-terminal")
-                                break
-
+                        if resto:
+                            # Caso 1: Hay más símbolos después del no-terminal actual
+                            acumulado = ""
+                            for char in resto:
+                                acumulado += char
+                                if acumulado in terminales:
+                                    if acumulado not in siguiente[simbolo]:
+                                        siguiente[simbolo].add(acumulado)
+                                        print(f"    Se encontró el terminal '{acumulado}'. Añadiendo a Siguiente({simbolo}).")
+                                        cambiado = True
+                                    else:
+                                        print(f"    El terminal '{acumulado}' ya estaba en Siguiente({simbolo}). No se añade.")
+                                    break
+                                elif acumulado in no_terminales:
+                                    primero_sin_epsilon = primero[acumulado] - {"ε"}
+                                    if primero_sin_epsilon - siguiente[simbolo]:
+                                        siguiente[simbolo].update(primero_sin_epsilon)
+                                        print(f"    Se encontró el no-terminal '{acumulado}'. Añadiendo Primero({acumulado}) - {{ε}} = {primero_sin_epsilon} a Siguiente({simbolo}).")
+                                        cambiado = True
+                                    else:
+                                        print(f"    El no-terminal '{acumulado}' no aporta nuevos elementos a Siguiente({simbolo}). No se añade.")
+                                    if "ε" not in primero[acumulado]:
+                                        break
+                                    acumulado = ""  # Si incluye ε, seguimos analizando
+                                else:
+                                    print(f"    '{acumulado}' no es ni terminal ni no-terminal. Continuando acumulación.")
                         else:
-                            # Si el resto produce epsilon
-                            print(f"El resto después del no-terminal '{simbolo}' produce ε")
-                            siguiente[simbolo].update(siguiente[no_terminal])
-                            print(f"Fusionamos Siguiente({no_terminal}) en Siguiente({simbolo})")
-                            cambiado = True
+                            # Caso 2: No hay más símbolos después del no-terminal actual
+                            print(f"    '{simbolo}' está al final. Fusionamos Siguiente({no_terminal}) en Siguiente({simbolo}).")
+                            if siguiente[no_terminal] - siguiente[simbolo]:
+                                siguiente[simbolo].update(siguiente[no_terminal])
+                                print(f"    Añadiendo Siguiente({no_terminal}) = {siguiente[no_terminal]} a Siguiente({simbolo}).")
+                                cambiado = True
+                            else:
+                                print(f"    Siguiente({no_terminal}) no aporta nuevos elementos a Siguiente({simbolo}). No se añade.")
 
-                    elif simbolo in terminales:
-                        # Si el símbolo es terminal, no lo procesamos en el conjunto Siguiente
-                        print(f"El símbolo '{simbolo}' es terminal y lo ignoramos.")
-
-        print(f"\nSiguiente actual: {siguiente}")
-        cambiado = True  # Reiterar hasta que no haya cambios
-
+    print(f"\nConjuntos Siguiente finales: {siguiente}")
     return siguiente
+
 
 
 
