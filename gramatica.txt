@@ -1,5 +1,9 @@
-E ⟶ TE’
-E’ ⟶ +TE’ | ε
-T ⟶ FT’
-T’ ⟶ *FT’ | ε
-F ⟶ (E) | id
+V: S, T, P, R, R'
+T: id, (, ), ;, int, float, ,, char 
+S: S
+P:
+S → Tid(P);
+T → int | float | char
+P → R | ε
+R → idR'
+R' →,R' | ε
