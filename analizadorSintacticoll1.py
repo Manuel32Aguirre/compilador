@@ -64,48 +64,118 @@ def calcular_siguiente(producciones, terminales, no_terminales, simbolo_inicial,
     siguiente = {nt: set() for nt in no_terminales}
     siguiente[simbolo_inicial].add("$")  # El símbolo inicial siempre incluye el fin de cadena.
 
-    # Repetir hasta que no haya cambios en los conjuntos Siguiente
     cambiado = True
     while cambiado:
         cambiado = False
         for no_terminal, reglas in producciones.items():
             for regla in reglas:
-                # Analizar símbolo por símbolo del lado derecho
+                print(f"\nAnalizando la producción {no_terminal} → {regla}")
+                
+                # Analizar cada símbolo en la regla
                 for i, simbolo in enumerate(regla):
-                    if simbolo in no_terminales:  # Solo para no terminales
-                        resto = regla[i + 1:]  # Lo que sigue después del símbolo actual
-                        
-                        # Caso 1: Hay algo después de 'simbolo'
-                        if resto:
-                            primer_resto = set()
-                            j = 0
-                            while j < len(resto):
-                                parte = resto[j]
-                                if parte in terminales:
-                                    primer_resto.add(parte)
-                                    break
-                                elif parte in no_terminales:
-                                    primer_resto.update(primero[parte] - {"ε"})
-                                    if "ε" not in primero[parte]:
-                                        break
-                                j += 1
-                            else:
-                                primer_resto.add("ε")
-                            
-                            # Agregar a Siguiente(simbolo) todo Primero(resto) sin ε
-                            nuevo = primer_resto - {"ε"}
-                            if not nuevo.issubset(siguiente[simbolo]):
-                                siguiente[simbolo].update(nuevo)
-                                cambiado = True
+                    print(f"\nProcesando el símbolo '{simbolo}' en la posición {i}")
 
-                        # Caso 2: No hay nada después de 'simbolo' o el resto genera ε
-                        if not resto or "ε" in primer_resto:
-                            # Agregar Siguiente(no_terminal) a Siguiente(simbolo)
-                            if not siguiente[no_terminal].issubset(siguiente[simbolo]):
-                                siguiente[simbolo].update(siguiente[no_terminal])
-                                cambiado = True
+                    if simbolo in no_terminales:
+                        resto = regla[i + 1:]  # Todo lo que sigue después del no-terminal
+                        print(f"  Resto después del símbolo '{simbolo}': {resto}")
+
+                        cadena_aux = ''  # Inicializo cadena_aux para construir la cadena después del símbolo actual
+                        
+                        # Recorrer el resto y construir cadena_aux
+                        for char in resto:
+                            cadena_aux += char
+                            print(f"    Construyendo cadena_aux: '{cadena_aux}'")
+
+                            if char in terminales:
+                                print(f"      Se encontró el terminal '{char}' después de '{simbolo}'")
+                                siguiente[simbolo].add(char)
+                                print(f"      Agregando '{char}' a Siguiente({simbolo})")
+                                cadena_aux = ''  # Reinicio cadena_aux después de encontrar un terminal
+                                break
+                            
+                            elif char in no_terminales:
+                                print(f"      Se encontró el no-terminal '{char}' después de '{simbolo}'")
+                                siguiente[simbolo].update(siguiente[char])
+                                print(f"      Fusionando Siguiente({char}) en Siguiente({simbolo})")
+                                cadena_aux = ''  # Reinicio cadena_aux después de encontrar otro no-terminal
+                                break
+
+                        else:
+                            # Si todo el resto produce ε
+                            print(f"      El resto después del no-terminal '{simbolo}' produce ε")
+                            siguiente[simbolo].update(siguiente[no_terminal])
+                            print(f"      Fusionando Siguiente({no_terminal}) en Siguiente({simbolo})")
+                            cambiado = True
+
+                    print(f"  Siguiente({simbolo}) ahora contiene: {siguiente[simbolo]}")
+                    cambiado = True
 
     return siguiente
+def calcular_siguiente(producciones, terminales, no_terminales, simbolo_inicial, primero):
+    siguiente = {nt: set() for nt in no_terminales}
+    siguiente[simbolo_inicial].add("$")  # El símbolo inicial siempre incluye el fin de cadena.
+
+    cambiado = True
+    while cambiado:
+        cambiado = False
+        for no_terminal, reglas in producciones.items():
+            for regla in reglas:
+                print(f"\nAnalizando la producción {no_terminal} → {regla}")
+
+                # Analizar símbolo por símbolo del lado derecho
+                for i, simbolo in enumerate(regla):
+                    if simbolo in no_terminales:
+                        print(f"\nProcesando el no-terminal '{simbolo}' en la posición {i}")
+
+                        resto = regla[i + 1:]  # Todo lo que sigue después del no-terminal
+                        print(f"Resto después del símbolo '{simbolo}': {resto}")
+
+                        cadena_aux = ''  # Iniciamos cadena_aux vacío
+
+                        # Recorrer el resto y construir cadena_aux para compararlo con Primero
+                        for char in resto:
+                            cadena_aux += char
+                            print(f"Construyendo cadena_aux: '{cadena_aux}'")
+
+                            # Caso: Encontramos un terminal
+                            if char in terminales:
+                                print(f"Se encontró el terminal '{char}' después de '{simbolo}'")
+                                siguiente[simbolo].add(char)
+                                print(f"Agregando '{char}' a Siguiente({simbolo})")
+                                cadena_aux = ''  # Reiniciamos cadena_aux después de encontrar terminal
+                                break
+
+                            # Caso: Encontramos otro no-terminal
+                            elif char in no_terminales:
+                                print(f"Se encontró el no-terminal '{char}' después de '{simbolo}'")
+                                siguiente[simbolo].update(siguiente[char])
+                                print(f"Fusionamos Siguiente({char}) en Siguiente({simbolo})")
+                                cadena_aux = ''  # Reiniciamos cadena_aux después de otro no-terminal
+                                break
+
+                            else:
+                                print(f"El resto después del no-terminal '{simbolo}' no coincide con ningún terminal ni no-terminal")
+                                break
+
+                        else:
+                            # Si el resto produce epsilon
+                            print(f"El resto después del no-terminal '{simbolo}' produce ε")
+                            siguiente[simbolo].update(siguiente[no_terminal])
+                            print(f"Fusionamos Siguiente({no_terminal}) en Siguiente({simbolo})")
+                            cambiado = True
+
+                    elif simbolo in terminales:
+                        # Si el símbolo es terminal, no lo procesamos en el conjunto Siguiente
+                        print(f"El símbolo '{simbolo}' es terminal y lo ignoramos.")
+
+        print(f"\nSiguiente actual: {siguiente}")
+        cambiado = True  # Reiterar hasta que no haya cambios
+
+    return siguiente
+
+
+
+
 
 
 
