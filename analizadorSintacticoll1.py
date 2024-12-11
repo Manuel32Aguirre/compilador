@@ -1,5 +1,5 @@
 def leer_gramatica(archivo):
-    producciones, terminales, no_terminales, simbolo_inicial, flag_producciones = {}, set(), set(), '', False
+    producciones, terminales, no_terminales, simbolo_inicial, flag_producciones = {}, set(), [], '', False
 
     try:
         with open(archivo, 'r', encoding='utf-8') as file:
@@ -8,18 +8,27 @@ def leer_gramatica(archivo):
                     continue
 
                 if linea.startswith("V:"):
-                    no_terminales.update(map(str.strip, linea[2:].split(',')))
+                    # Añadir no-terminales en orden
+                    nuevos_no_terminales = map(str.strip, linea[2:].split(','))
+                    for nt in nuevos_no_terminales:
+                        if nt not in no_terminales:
+                            no_terminales.append(nt)
+
                 elif linea.startswith("T:"):
                     terminales.update(t if t else ',' for t in map(str.strip, linea[2:].split(',')))
+
                 elif linea.startswith("S:"):
                     simbolo_inicial = linea.split(':')[1].strip()
+
                 elif linea == "P:":
                     flag_producciones = True
+
                 elif flag_producciones and "→" in linea:
                     try:
                         no_terminal, produccion = map(str.strip, linea.split("→"))
                         alternativas = produccion.split('|')
                         producciones.setdefault(no_terminal, []).extend(map(str.strip, alternativas))
+
                     except ValueError:
                         print(f"Error al procesar la producción: {linea}")
 
@@ -27,7 +36,9 @@ def leer_gramatica(archivo):
 
     except FileNotFoundError:
         print(f"Error: El archivo {archivo} no se encuentra.")
-        return {}, set(), set(), ''
+        return {}, set(), [], ''
+
+
 
 
 def calcular_primero(producciones, terminales, no_terminales):
@@ -60,120 +71,68 @@ def calcular_primero(producciones, terminales, no_terminales):
         return {simbolo}
 
     return {no_terminal: obtener_primero(no_terminal, set()) for no_terminal in producciones}
+
+
+
+    return siguiente
 def calcular_siguiente(producciones, terminales, no_terminales, simbolo_inicial, primero):
+    # Inicializar conjuntos Siguiente, con `$` solo para el símbolo inicial
     siguiente = {nt: set() for nt in no_terminales}
-    siguiente[simbolo_inicial].add("$")  # El símbolo inicial siempre incluye el fin de cadena.
+    siguiente[simbolo_inicial].add("$")  # Agregar `$` únicamente al símbolo inicial
 
+    iteracion = 1
     cambiado = True
-    while cambiado:
+    max_iteraciones = 100  # Evitar bucles infinitos
+
+    while cambiado and iteracion < max_iteraciones:
+        iteracion += 1
         cambiado = False
-        for no_terminal, reglas in producciones.items():
-            for regla in reglas:
-                print(f"\nAnalizando la producción {no_terminal} → {regla}")
-                
-                # Analizar cada símbolo en la regla
-                for i, simbolo in enumerate(regla):
-                    print(f"\nProcesando el símbolo '{simbolo}' en la posición {i}")
 
-                    if simbolo in no_terminales:
-                        resto = regla[i + 1:]  # Todo lo que sigue después del no-terminal
-                        print(f"  Resto después del símbolo '{simbolo}': {resto}")
+        for no_terminal in no_terminales:
+            anterior = siguiente[no_terminal].copy()  # Copia del estado anterior para verificar cambios
 
-                        cadena_aux = ''  # Inicializo cadena_aux para construir la cadena después del símbolo actual
-                        
-                        # Recorrer el resto y construir cadena_aux
+            # Recorrer todas las producciones para buscar el no_terminal
+            for produccion_no_terminal, reglas in producciones.items():
+                for regla in reglas:
+                    if no_terminal in regla:
+                        resto = regla[regla.index(no_terminal) + 1:]
+
+                        acumulado = ''
                         for char in resto:
-                            cadena_aux += char
-                            print(f"    Construyendo cadena_aux: '{cadena_aux}'")
+                            acumulado += char
 
-                            if char in terminales:
-                                print(f"      Se encontró el terminal '{char}' después de '{simbolo}'")
-                                siguiente[simbolo].add(char)
-                                print(f"      Agregando '{char}' a Siguiente({simbolo})")
-                                cadena_aux = ''  # Reinicio cadena_aux después de encontrar un terminal
-                                break
-                            
-                            elif char in no_terminales:
-                                print(f"      Se encontró el no-terminal '{char}' después de '{simbolo}'")
-                                siguiente[simbolo].update(siguiente[char])
-                                print(f"      Fusionando Siguiente({char}) en Siguiente({simbolo})")
-                                cadena_aux = ''  # Reinicio cadena_aux después de encontrar otro no-terminal
-                                break
-
-                        else:
-                            # Si todo el resto produce ε
-                            print(f"      El resto después del no-terminal '{simbolo}' produce ε")
-                            siguiente[simbolo].update(siguiente[no_terminal])
-                            print(f"      Fusionando Siguiente({no_terminal}) en Siguiente({simbolo})")
-                            cambiado = True
-
-                    print(f"  Siguiente({simbolo}) ahora contiene: {siguiente[simbolo]}")
-                    cambiado = True
-
-    return siguiente
-def calcular_siguiente(producciones, terminales, no_terminales, simbolo_inicial, primero):
-    siguiente = {nt: set() for nt in no_terminales}
-    siguiente[simbolo_inicial].add("$")  # El símbolo inicial siempre incluye el fin de cadena.
-
-    cambiado = True
-    while cambiado:
-        cambiado = False
-        for no_terminal, reglas in producciones.items():
-            for regla in reglas:
-                print(f"\nAnalizando la producción {no_terminal} → {regla}")
-
-                for i, simbolo in enumerate(regla):
-                    if simbolo in no_terminales:
-                        print(f"  Procesando el no-terminal '{simbolo}' en la posición {i}")
-                        resto = regla[i + 1:]  # Lo que sigue después del no-terminal actual
-
-                        if resto:
-                            # Caso 1: Hay más símbolos después del no-terminal actual
-                            acumulado = ""
-                            for char in resto:
-                                acumulado += char
-                                if acumulado in terminales:
-                                    if acumulado not in siguiente[simbolo]:
-                                        siguiente[simbolo].add(acumulado)
-                                        print(f"    Se encontró el terminal '{acumulado}'. Añadiendo a Siguiente({simbolo}).")
-                                        cambiado = True
-                                    else:
-                                        print(f"    El terminal '{acumulado}' ya estaba en Siguiente({simbolo}). No se añade.")
-                                    break
-                                elif acumulado in no_terminales:
-                                    primero_sin_epsilon = primero[acumulado] - {"ε"}
-                                    if primero_sin_epsilon - siguiente[simbolo]:
-                                        siguiente[simbolo].update(primero_sin_epsilon)
-                                        print(f"    Se encontró el no-terminal '{acumulado}'. Añadiendo Primero({acumulado}) - {{ε}} = {primero_sin_epsilon} a Siguiente({simbolo}).")
-                                        cambiado = True
-                                    else:
-                                        print(f"    El no-terminal '{acumulado}' no aporta nuevos elementos a Siguiente({simbolo}). No se añade.")
-                                    if "ε" not in primero[acumulado]:
-                                        break
-                                    acumulado = ""  # Si incluye ε, seguimos analizando
-                                else:
-                                    print(f"    '{acumulado}' no es ni terminal ni no-terminal. Continuando acumulación.")
-                        else:
-                            # Caso 2: No hay más símbolos después del no-terminal actual
-                            print(f"    '{simbolo}' está al final. Fusionamos Siguiente({no_terminal}) en Siguiente({simbolo}).")
-                            if siguiente[no_terminal] - siguiente[simbolo]:
-                                siguiente[simbolo].update(siguiente[no_terminal])
-                                print(f"    Añadiendo Siguiente({no_terminal}) = {siguiente[no_terminal]} a Siguiente({simbolo}).")
+                            if acumulado in terminales:
+                                siguiente[no_terminal].add(acumulado)
                                 cambiado = True
-                            else:
-                                print(f"    Siguiente({no_terminal}) no aporta nuevos elementos a Siguiente({simbolo}). No se añade.")
+                                break
 
-    print(f"\nConjuntos Siguiente finales: {siguiente}")
+                            elif acumulado in no_terminales:
+                                primero_sin_epsilon = primero[acumulado] - {"ε"}
+                                if primero_sin_epsilon - siguiente[no_terminal]:
+                                    siguiente[no_terminal].update(primero_sin_epsilon)
+                                    cambiado = True
+
+                                if "ε" not in primero[acumulado]:
+                                    break
+
+                        if not resto or all("ε" in primero[s] for s in resto if s in no_terminales):
+                            siguiente_a_fusionar = siguiente[produccion_no_terminal] - {"$"}
+                            if siguiente_a_fusionar - siguiente[no_terminal]:
+                                siguiente[no_terminal].update(siguiente_a_fusionar)
+                                cambiado = True
+
+            if siguiente[no_terminal] != anterior:
+                cambiado = True
+
+        if not cambiado:
+            break
+
+        iteracion += 1
+
+    if iteracion >= max_iteraciones:
+        return siguiente
+
     return siguiente
-
-
-
-
-
-
-
-
-
 
 
 
@@ -200,6 +159,54 @@ def imprimir_siguiente(siguiente):
     for no_terminal, conjunto in siguiente.items():
         print(f"Siguiente({no_terminal}): {conjunto}")
 
+def generar_tabla_ll1(producciones, terminales, no_terminales, primero, siguiente):
+    # Inicializar la tabla LL(1) vacía
+    tabla_ll1 = {no_terminal: {terminal: None for terminal in terminales.union({"$"})} for no_terminal in no_terminales}
+
+    print("\nIniciando generación de la tabla LL(1)...\n")
+
+    # Iterar sobre cada no-terminal y sus reglas
+    for no_terminal, reglas in producciones.items():
+        print(f"Procesando No-Terminal: {no_terminal}")
+
+        for produccion in reglas:
+            # Obtener directamente el conjunto Primero del No-Terminal
+            conjunto_primero = primero.get(no_terminal, set())
+            print(f"  Regla: {no_terminal} → {produccion}")
+            print(f"    Conjunto Primero: {conjunto_primero}")
+
+            # Procesar terminales en el conjunto Primero
+            for terminal in conjunto_primero:
+                if terminal != "ε":
+                    print(f"      -> M({no_terminal}, {terminal}) = {no_terminal} → {produccion}")
+                    tabla_ll1[no_terminal][terminal] = f"{no_terminal} → {produccion}"
+
+            # Si la producción genera ε, usamos el conjunto Siguiente
+            if "ε" in conjunto_primero:
+                print("    Producción genera ε, procesando conjunto Siguiente...")
+                for terminal_s in siguiente.get(no_terminal, set()):
+                    print(f"      -> M({no_terminal}, {terminal_s}) = {no_terminal} → {produccion}")
+                    tabla_ll1[no_terminal][terminal_s] = f"{no_terminal} → {produccion}"
+
+    return tabla_ll1
+
+
+
+def imprimir_tabla_ll1(tabla_ll1):
+    print("\nTabla LL(1):")
+    terminales = sorted(list(next(iter(tabla_ll1.values())).keys()))  # Obtener los terminales de la tabla
+    header = "\t" + "\t".join(terminales)  # Crear encabezado de la tabla
+    print(header)
+
+    # Recorrer la tabla e imprimir fila por fila
+    for no_terminal, fila in tabla_ll1.items():
+        fila_str = f"{no_terminal}\t"
+        for terminal in terminales:
+            produccion = fila[terminal]
+            celda = produccion if produccion else "-"  # Mostrar la producción o un guion si está vacío
+            fila_str += f"{celda}\t"
+        print(fila_str)
+
 
 # Programa principal
 archivo_gramatica = "gramatica.txt"
@@ -217,3 +224,7 @@ imprimir_primero(primero)
 print("\nCalculando Conjunto Siguiente...")
 siguiente = calcular_siguiente(producciones, terminales, no_terminales, simbolo_inicial, primero)
 imprimir_siguiente(siguiente)
+
+print("\nGenerando y mostrando la tabla LL(1)...")
+tabla_ll1 = generar_tabla_ll1(producciones, terminales, no_terminales, primero, siguiente)
+imprimir_tabla_ll1(tabla_ll1)
