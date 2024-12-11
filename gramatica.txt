@@ -1,9 +1,9 @@
-V: S, T, P, R, R'
-T: id, (, ), ;, int, float, ,, char 
-S: S
+V: E, E', T, T', F
+T: +, -, *, /, id, #, (, )
+S: E
 P:
-S → Tid(P);
-T → int | float | char
-P → R | ε
-R → idR'
-R' →,R' | ε
+E → TE'
+E' → +TE' | -TE' | ε
+T → FT'
+T' → *FT' | /FT' | ε
+F' → id | # | (E)

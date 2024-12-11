@@ -38,9 +38,6 @@ def leer_gramatica(archivo):
         print(f"Error: El archivo {archivo} no se encuentra.")
         return {}, set(), [], ''
 
-
-
-
 def calcular_primero(producciones, terminales, no_terminales):
     def obtener_primero(simbolo, visited):
         if simbolo in terminales:
@@ -219,9 +216,6 @@ def imprimir_tabla_ll1(tabla_ll1, terminales, no_terminales):
             for t in terminales_ordenados
         )
         print(fila)
-
-
-
 
 # Programa principal
 archivo_gramatica = "gramatica.txt"
