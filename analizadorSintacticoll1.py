@@ -160,52 +160,67 @@ def imprimir_siguiente(siguiente):
         print(f"Siguiente({no_terminal}): {conjunto}")
 
 def generar_tabla_ll1(producciones, terminales, no_terminales, primero, siguiente):
-    # Inicializar la tabla LL(1) vacía
-    tabla_ll1 = {no_terminal: {terminal: None for terminal in terminales.union({"$"})} for no_terminal in no_terminales}
+    # Inicializar la tabla LL(1) vacía con `"-"` en lugar de `None`
+    tabla_ll1 = {no_terminal: {terminal: "-" for terminal in terminales.union({"$"})} for no_terminal in no_terminales}
 
-    print("\nIniciando generación de la tabla LL(1)...\n")
-
-    # Iterar sobre cada no-terminal y sus reglas
+    # Iterar sobre cada no-terminal y sus reglas de producción
     for no_terminal, reglas in producciones.items():
-        print(f"Procesando No-Terminal: {no_terminal}")
+        print(f"\nAnalizando las reglas de producción para: {no_terminal}")
+        for regla in reglas:
+            print(f"  Regla de producción: {no_terminal} → {regla}")
 
-        for produccion in reglas:
-            # Obtener directamente el conjunto Primero del No-Terminal
-            conjunto_primero = primero.get(no_terminal, set())
-            print(f"  Regla: {no_terminal} → {produccion}")
-            print(f"    Conjunto Primero: {conjunto_primero}")
+            # Inicializar un acumulador para construir terminales o no terminales
+            acumulador = ""
+            for i, simbolo in enumerate(regla):
+                acumulador += simbolo  # Construir símbolo concatenando
+                if acumulador in terminales:
+                    print(f"    Tupla generada: M[{no_terminal}, {acumulador}] = {no_terminal} → {regla}")
+                    if tabla_ll1[no_terminal][acumulador] == "-":
+                        tabla_ll1[no_terminal][acumulador] = f"{no_terminal} → {regla}"
+                    break
+                elif acumulador in no_terminales:
+                    primero_acumulador = primero.get(acumulador, set())
+                    for terminal in primero_acumulador - {"ε"}:
+                        print(f"    Tupla generada: M[{no_terminal}, {terminal}] = {no_terminal} → {regla}")
+                        if tabla_ll1[no_terminal][terminal] == "-":
+                            tabla_ll1[no_terminal][terminal] = f"{no_terminal} → {regla}"
+                    if "ε" not in primero_acumulador:
+                        break
+                    acumulador = ""  # Reiniciar acumulador tras procesar no-terminal
+                elif i == len(regla) - 1:
+                    print(f"    ADVERTENCIA: No se encontró un terminal o no-terminal válido para '{acumulador}'. Ignorando la regla.")
 
-            # Procesar terminales en el conjunto Primero
-            for terminal in conjunto_primero:
-                if terminal != "ε":
-                    print(f"      -> M({no_terminal}, {terminal}) = {no_terminal} → {produccion}")
-                    tabla_ll1[no_terminal][terminal] = f"{no_terminal} → {produccion}"
-
-            # Si la producción genera ε, usamos el conjunto Siguiente
-            if "ε" in conjunto_primero:
-                print("    Producción genera ε, procesando conjunto Siguiente...")
+            # ** Manejo especial para el caso de ε (producción vacía)**
+            if "ε" in regla:
                 for terminal_s in siguiente.get(no_terminal, set()):
-                    print(f"      -> M({no_terminal}, {terminal_s}) = {no_terminal} → {produccion}")
-                    tabla_ll1[no_terminal][terminal_s] = f"{no_terminal} → {produccion}"
+                    print(f"    Tupla generada: M[{no_terminal}, {terminal_s}] = {no_terminal} → ε")
+                    if tabla_ll1[no_terminal][terminal_s] == "-":
+                        tabla_ll1[no_terminal][terminal_s] = f"{no_terminal} → ε"
 
     return tabla_ll1
 
 
-
-def imprimir_tabla_ll1(tabla_ll1):
+def imprimir_tabla_ll1(tabla_ll1, terminales, no_terminales):
     print("\nTabla LL(1):")
-    terminales = sorted(list(next(iter(tabla_ll1.values())).keys()))  # Obtener los terminales de la tabla
-    header = "\t" + "\t".join(terminales)  # Crear encabezado de la tabla
-    print(header)
 
-    # Recorrer la tabla e imprimir fila por fila
-    for no_terminal, fila in tabla_ll1.items():
-        fila_str = f"{no_terminal}\t"
-        for terminal in terminales:
-            produccion = fila[terminal]
-            celda = produccion if produccion else "-"  # Mostrar la producción o un guion si está vacío
-            fila_str += f"{celda}\t"
-        print(fila_str)
+    # Ordenar terminales y agregar '$' al final como marcador de fin de cadena
+    terminales_ordenados = sorted(list(terminales)) + ["$"]
+
+    # Encabezado de la tabla con columnas más anchas (15 caracteres)
+    encabezado = "No-Terminal".ljust(15) + " | " + " | ".join(t.ljust(15) for t in terminales_ordenados)
+    separador = "-" * len(encabezado)
+    print(encabezado)
+    print(separador)
+
+    # Imprimir cada fila respetando el orden de no-terminales como aparecen en la lista original
+    for no_terminal in no_terminales:
+        fila = no_terminal.ljust(15) + " | " + " | ".join(
+            (str(tabla_ll1[no_terminal].get(t, "-"))).ljust(15)
+            for t in terminales_ordenados
+        )
+        print(fila)
+
+
 
 
 # Programa principal
@@ -227,4 +242,4 @@ imprimir_siguiente(siguiente)
 
 print("\nGenerando y mostrando la tabla LL(1)...")
 tabla_ll1 = generar_tabla_ll1(producciones, terminales, no_terminales, primero, siguiente)
-imprimir_tabla_ll1(tabla_ll1)
+imprimir_tabla_ll1(tabla_ll1, terminales, no_terminales)
