@@ -49,3 +49,4 @@ def tokenize(code):
             raise RuntimeError(f'{value!r} inesperado en la línea {line_num}')
         result.append((kind, value))
     return result
+print(tokenize("int x = 10;"))

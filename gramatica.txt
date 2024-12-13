@@ -2,8 +2,8 @@ V: E, E', T, T', F
 T: +, -, *, /, id, #, (, )
 S: E
 P:
-E → TE'
-E' → +TE' | -TE' | ε
-T → FT'
-T' → *FT' | /FT' | ε
-F' → id | # | (E)
+E → T E'
+E' → + T E' | - T E' | ε
+T → F T'
+T' → * F T' | / F T' | ε
+F → id | # | (E)
