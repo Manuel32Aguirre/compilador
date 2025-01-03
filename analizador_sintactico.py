@@ -26,16 +26,16 @@ def parse_program():
     }
     
     while current_token() and current_token()[1] != "main":  # Leer prototipos de funciones
-        parse_function_decl()
+        parse_function_prot()
     while current_token():  # Leer funciones
         parse_func()
 
 # Regla para prototipos de funciones.
-def parse_function_decl():
+def parse_function_prot():
     func_type = match("TYPE")[1]
     name = match("IDENTIFIER")[1]  # Nombre de la función
     match("LPAREN")
-    args = parse_function_args()  # Procesar los argumentos
+    args = parse_function_args_prot()  # Procesar los argumentos
     match("RPAREN")
     match("SEMICOLON")
     tabla_simbolos[name] = {
@@ -43,8 +43,8 @@ def parse_function_decl():
         "tipo" : func_type
     }
 
-# Regla para procesar los argumentos de el prototipo de una funcion. tupla(tipo, nombre)
-def parse_function_args():
+# Regla para procesar los argumentos del prototipo de una funcion. (tipo identif o solo tipo). Devuelve una tupla(tipo, nombre)
+def parse_function_args_prot():
     args = []
     if current_token()[0] == "RPAREN":  # Sin argumentos
         return args
@@ -62,13 +62,43 @@ def parse_function_args():
             break
     return args
 
+# Regla para procesar los argumentos de la llamada a una función. (forzosamente solo el nombre del parametro)
+def parse_call_function_args():
+    if current_token()[0] == "RPAREN":  # Sin argumentos
+        return
+    while current_token() and current_token()[0] != "RPAREN":
+        match("IDENTIFIER")[1] #identificador del argumento
+        # validar que el tipo coincida con la def de la funcion y que la var exista en la tabla de simbolos
+        if current_token()[0] == "COMMA":  # Más argumentos
+            match("COMMA")
+        else:
+            break
+    return 
+
+# Regla para procesar los argumentos del cuerpo de una funcion (forzosamente tipo e identif)
+def parse_arguments_body_func():
+    if current_token()[0] == "RPAREN":  # Sin argumentos
+        return
+    while current_token() and current_token()[0] != "RPAREN":
+        tipo = match("TYPE")[1]  # Tipo de dato
+        var = match("IDENTIFIER")[1]
+        tabla_simbolos[var] = { # No esta validado usar el mismo nombre para una var en una funcion y en otra (variables temporales)
+            "tipo" : tipo,
+            "valor" : 0
+        }
+        if current_token()[0] == "COMMA":  # Más argumentos
+            match("COMMA")
+        else:
+            break
+    return 
+
 # Regla de produccion para una funcion nombre(){...}
 def parse_func():
     if current_token()[1] != "main":
         match("TYPE")[1]
     name = match("IDENTIFIER")[1]
     match("LPAREN")
-    parse_arguments(name)
+    parse_arguments_body_func()
     match("RPAREN")
     match("LBRACE")
     parse_statements()
@@ -76,7 +106,7 @@ def parse_func():
 
 # Regla para argumentos de función.
 def parse_arguments(name):
-    args = parse_function_args()
+    args = parse_call_function_args()
     i = 0
     if len(args) == len(tabla_simbolos[name]["argumentos"]):
         for a in args:
@@ -92,6 +122,7 @@ def parse_arguments(name):
 def parse_statements():
     while current_token() and current_token()[0] != "RBRACE": # mientras haya tokens por consumir y no se trate de '}' #¿Esto funciona para for(){expresiones}
         parse_statement()
+
 
 # Clasifica si una instrucciones es una declaracion de variable, una asignación, una llamada a una funcion o una estructura if, for o while
 def parse_statement():
@@ -115,6 +146,7 @@ def parse_statement():
         parse_assignment_or_call()
     else:
         raise SyntaxError(f"Sentencia no válida: {token} posicion {current_pos}" )
+
 
 # Regla para declaración de variables. 
 def parse_var_decl():
@@ -161,61 +193,6 @@ def parse_set_tempo():
         raise SyntaxError(f"Error de sintaxis, se esperaba set_tempo(numero)")
     match("RPAREN")
     match("SEMICOLON")
-
-# Regla para analizar un expresion aritmetica o logica <----- Agregar el arbol semantico
-def parse_expression():
-    left = parse_term()  # Parse el primer término
-    
-    while current_token()[0] in ("PLUS", "MINUS", "GREATER_THAN", "LESS_THAN", "GREATER_EQUAL", "LESS_EQUAL", "EQUALS", "NOT_EQUAL"):  # O bien operador aritmético o lógico
-        operator = match(current_token()[0])[1]   # Consume el operador
-        right = parse_term()  # Parse el siguiente término
-
-    # Construir un nodo simplificado
-        left = [operator, left, right]
-
-    return left
-
-# Regla para analizar un término (factores con * o /).
-def parse_term():
-    left = parse_factor()
-
-    # Luego puede haber una secuencia de términos con operadores * o /
-    while current_token() and current_token()[0] in ("MULT", "DIV_OP"):
-        operator = match(current_token()[0])  # Consume el operador
-        right = parse_factor()  # Analizamos el siguiente factor
-
-        # Construir un nodo simplificado
-        left = [operator, left, right]
-
-    return left  # Retorna el nodo simplificado para el término
-
-# Regla para analizar un factor (identificador, número, string o expresión entre paréntesis).
-def parse_factor():
-    left = current_token()
-    
-    if left[0] == "IDENTIFIER":
-        #Analisis semantico validacion en la tabla de simbolos
-        if not esta_declarada(left[1]):
-            raise NameError(f"La variable '{left[1]}' no ha sido declarada antes de su uso. pos {current_pos}") 
-        match("IDENTIFIER") 
-        # Retorna el valor del identificador directamente
-        return tabla_simbolos[left[1]]["valor"]
-
-    elif left[0] == "NUMBER":
-        value = float(match("NUMBER")[1])  # Consume el número y convierte a flotante
-        return value  # Retorna directamente el valor
-    
-    elif left[0] == "STRING":
-        value = match("STRING")[1]  # Consume la cadena
-        return value  # Retorna directamente el valor
-    
-    elif left[0] == "LPAREN":
-        match("LPAREN")  # Consume el paréntesis izquierdo
-        expr = parse_expression()  # Analizamos la expresión entre paréntesis
-        match("RPAREN")  # Consume el paréntesis derecho
-        return expr
-    else:
-        raise SyntaxError(f"Se esperaba un identificador, número, cadena o '(', pero se encontró {left} en la posición {current_pos}")
 
 def parse_if():
     """Regla para analizar un if."""
@@ -305,11 +282,68 @@ def esta_declarada(variable):
     return any(variable in entry for entry in tabla_simbolos)
 
 #Analisis semantico: 
+
+# Regla para analizar un expresion aritmetica o logica <----- Agregar el arbol semantico
+def parse_expression():
+    left = parse_term()  # Parse el primer término
+    
+    while current_token()[0] in ("PLUS", "MINUS", "GREATER_THAN", "LESS_THAN", "GREATER_EQUAL", "LESS_EQUAL", "EQUALS", "NOT_EQUAL"):  # O bien operador aritmético o lógico
+        operator = current_token()[1]
+        match(current_token()[0])   # Consume el operador
+        right = parse_term()  # Parse el siguiente término
+        # Construir un nodo simplificado
+        left = [operator, left, right]
+
+    return left
+
+# Regla para analizar un término (factores con * o /).
+def parse_term():
+    left = parse_factor()
+
+    # Luego puede haber una secuencia de términos con operadores * o /
+    while current_token() and current_token()[0] in ("MULT", "DIV_OP"):
+        operator = current_token()[1]  # Consume el operador
+        match(current_token()[0])
+        right = parse_factor()  # Analizamos el siguiente factor
+
+        # Construir un nodo simplificado
+        left = [operator, left, right]
+
+    return left  # Retorna el nodo simplificado para el término
+
+# Regla para analizar un factor (identificador, número, string o expresión entre paréntesis).
+def parse_factor():
+    left = current_token()
+    
+    if left[0] == "IDENTIFIER":
+        #Analisis semantico validacion en la tabla de simbolos
+        if not esta_declarada(left[1]):
+            raise NameError(f"La variable '{left[1]}' no ha sido declarada antes de su uso. pos {current_pos}") 
+        match("IDENTIFIER") 
+        # Retorna el valor del identificador directamente
+        return tabla_simbolos[left[1]]["valor"]
+
+    elif left[0] == "NUMBER":
+        value = float(match("NUMBER")[1])  # Consume el número y convierte a flotante
+        return value  # Retorna directamente el valor
+    
+    elif left[0] == "STRING":
+        value = match("STRING")[1]  # Consume la cadena
+        return value  # Retorna directamente el valor
+    
+    elif left[0] == "LPAREN":
+        match("LPAREN")  # Consume el paréntesis izquierdo
+        expr = parse_expression()  # Analizamos la expresión entre paréntesis
+        match("RPAREN")  # Consume el paréntesis derecho
+        return expr
+    else:
+        raise SyntaxError(f"Se esperaba un identificador, número, cadena o '(', pero se encontró {left} en la posición {current_pos}")
+
 def recorrer_preorden(nodo):
     if isinstance(nodo, list):
         # Nodo interno (operador)
         operador = nodo[0]
-        izquierdo = recorrer_preorden(nodo[1])
+        izquierdo = recorrer_preorden(nodo[1]) #si es un arbol nodo[1] será otra lista
         derecho = recorrer_preorden(nodo[2])
         return f"{operador} {izquierdo} {derecho}"
     else:
@@ -368,13 +402,20 @@ main(){
 
     //Asignacion de expresiones aritmeticas
     int new_tempo = tempo + 20;
+    //duration = tempo / 2 + 1; //Esta fallando la division
+
+    //Llamada a funciones predefinidas
+    set_tempo(new_tempo); // Ajusta el tempo a 140 BPM
+    play(myNote, duration); // Reproduce la nota C4 durante 1 beat
+
+
 }
 
 // Declaracion de una funcion definida por el usuario
-void play_chord(int duration){
-    play("C4", duration);
-    play("E4", duration);
-    play("G4", duration);
+void play_chord(int dur){
+    play("C4", dur);
+    play("E4", dur);
+    play("G4", dur);
 }
 
 """
