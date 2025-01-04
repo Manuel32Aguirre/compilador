@@ -3,16 +3,15 @@ from analizador_lexico import tokenize
 current_pos = 0
 tokens = []
 tabla_simbolos = {}
-# nombre_var   tipo   valor
 
-# Devuelve una tupla con el token actual y su gramatica o None si se han procesado todos los tokens.
+# Devuelve una tupla (token actual, gramatica) o None si se han procesado todos los tokens.
 def current_token():
     global current_pos, tokens
     return tokens[current_pos] if current_pos < len(tokens) else None
 
-# Verifica si el token en la posicion actual y el esperado hacen match, si si consume un token esperado y devuelve una tupla.
+# Verifica si el token en la posicion actual y el esperado hacen match, si si consume un token esperado y devuelve la tupla (token actual, gramatica).
 def match(expected_type):
-    global current_pos # "global" permite modificar la vairable global
+    global current_pos # "global" permite modificar la vairable global current_pos
     token = current_token()
     if token and token[0] == expected_type:
         current_pos += 1
@@ -24,10 +23,11 @@ def parse_program():
     tabla_simbolos["main"] = {
         "argumentos": []
     }
-    
-    while current_token() and current_token()[1] != "main":  # Leer prototipos de funciones
+     # Leer prototipos de funciones
+    while current_token() and current_token()[1] != "main": 
         parse_function_prot()
-    while current_token():  # Leer funciones
+    # Leer funciones
+    while current_token():  
         parse_func()
 
 # Regla para prototipos de funciones.
@@ -43,7 +43,7 @@ def parse_function_prot():
         "tipo" : func_type
     }
 
-# Regla para procesar los argumentos del prototipo de una funcion. (tipo identif o solo tipo). Devuelve una tupla(tipo, nombre)
+# Regla para procesar los ARGUMENTOS del PROTOTIPO de una funcion. (tipo identif o solo tipo). Devuelve una tupla(tipo, nombre)
 def parse_function_args_prot():
     args = []
     if current_token()[0] == "RPAREN":  # Sin argumentos
@@ -62,32 +62,53 @@ def parse_function_args_prot():
             break
     return args
 
-# Regla para procesar los argumentos de la llamada a una función. (forzosamente solo el nombre del parametro)
-def parse_call_function_args():
+# Regla para procesar los ARGUMENTOS de la LLAMADA a una función. (forzosamente solo el nombre del parametro)
+def parse_call_function_args(func):
     if current_token()[0] == "RPAREN":  # Sin argumentos
         return
+    i = 0
     while current_token() and current_token()[0] != "RPAREN":
-        match("IDENTIFIER")[1] #identificador del argumento
-        # validar que el tipo coincida con la def de la funcion y que la var exista en la tabla de simbolos
-        if current_token()[0] == "COMMA":  # Más argumentos
-            match("COMMA")
-        else:
-            break
+        var = match("IDENTIFIER")[1] #identificador del argumento
+        # validar que el tipo de la variable pasada por argumento coincida con el prototipo de la funcion y que la var exista en la tabla de simbolos
+        if(esta_declarada(var)):
+            if(i<len(tabla_simbolos[func]["argumentos"])):            
+                if(tabla_simbolos[var]["tipo"] == tabla_simbolos[func]["argumentos"][i][0]):
+                    if current_token()[0] == "COMMA":  # Más argumentos
+                        match("COMMA")
+                        i+=1
+                    else:
+                        break
+                else:
+                    raise SyntaxError(f"Error: en la llamada a la funcion: {func} en la pos: {current_pos}.\nEl prototipo indica que {func}({tabla_simbolos[func]["argumentos"]}) pero la variable {var} es de tipo: {tabla_simbolos[var]["tipo"]} ")
+            else:
+                raise SyntaxError(f"Error: en la llamada a la funcion: {func} en la pos: {current_pos}.\nEl prototipo indica que {func} recibe {len(tabla_simbolos[func]["argumentos"])} argumentos, pero se estan mandando {i+1} argumentos en esta llamada.")
+        else: 
+            raise SyntaxError(f"Error: en la llamada a la funcion: {func} en la pos: {current_pos}.\nLa variable: {var} no ha sido declarada.")
+        
     return 
 
-# Regla para procesar los argumentos del cuerpo de una funcion (forzosamente tipo e identif)
-def parse_arguments_body_func():
+# Regla para procesar los ARGUMENTOS del CUERPO de una funcion (forzosamente tipo e identif)
+def parse_arguments_body_func(func):
     if current_token()[0] == "RPAREN":  # Sin argumentos
         return
+    i = 0
     while current_token() and current_token()[0] != "RPAREN":
+        # estas son variables temporales dentro de la funcion
         tipo = match("TYPE")[1]  # Tipo de dato
         var = match("IDENTIFIER")[1]
-        tabla_simbolos[var] = { # No esta validado usar el mismo nombre para una var en una funcion y en otra (variables temporales)
-            "tipo" : tipo,
-            "valor" : 0
-        }
+
+        if(i < len(tabla_simbolos[func]["argumentos"]) and tabla_simbolos[func]["argumentos"][i][0] == tipo):
+            tabla_simbolos[var] = { # No esta validado usar el mismo nombre para una var en una funcion y en otra (variables temporales)
+                "tipo" : tipo,
+                "valor" : 0 # asignar el valor pasado por parametro
+            }
+        else:
+            raise SyntaxError(f"\nEn la llamada a la funcion: {func} en la pos: {current_pos}.\nEl prototipo indica que {func}({tabla_simbolos[func]["argumentos"]}) pero la variable {var} es de tipo: {tipo} ")
+        
+        # tabla_simbolos[func]["argumentos"][i] = (tipo, var)  # Agrega el nombre a los argumentos de una funcion
         if current_token()[0] == "COMMA":  # Más argumentos
             match("COMMA")
+            i+=1
         else:
             break
     return 
@@ -98,31 +119,30 @@ def parse_func():
         match("TYPE")[1]
     name = match("IDENTIFIER")[1]
     match("LPAREN")
-    parse_arguments_body_func()
+    parse_arguments_body_func(name)
     match("RPAREN")
     match("LBRACE")
     parse_statements()
     match("RBRACE")
 
 # Regla para argumentos de función.
-def parse_arguments(name):
-    args = parse_call_function_args()
+def parse_arguments(func):
+    args = parse_call_function_args(func)
     i = 0
-    if len(args) == len(tabla_simbolos[name]["argumentos"]):
+    if len(args) == len(tabla_simbolos[func]["argumentos"]):
         for a in args:
-            if a[0] == tabla_simbolos[name]["argumentos"][i][0]:
+            if a[0] == tabla_simbolos[func]["argumentos"][i][0]:
                 i+=1
             else: 
-                raise SyntaxError(f"Error en asignación o llamada: {name} en la posicion {current_pos}.\nSe esperaba{name}{tabla_simbolos[name]["argumentos"]}")
+                raise SyntaxError(f"Error en asignación o llamada: {func} en la posicion {current_pos}.\nSe esperaba{func}{tabla_simbolos[func]["argumentos"]}")
         return
     else: 
-        raise SyntaxError(f"Error en asignación o llamada: {name} en la posicion {current_pos}.\nSe esperaba{name}{tabla_simbolos[name]["argumentos"]}")
+        raise SyntaxError(f"Error en asignación o llamada: {func} en la posicion {current_pos}.\nSe esperaba{func}{tabla_simbolos[func]["argumentos"]}")
 
 # Regla para cada instrucción de una funcion
 def parse_statements():
     while current_token() and current_token()[0] != "RBRACE": # mientras haya tokens por consumir y no se trate de '}' #¿Esto funciona para for(){expresiones}
         parse_statement()
-
 
 # Clasifica si una instrucciones es una declaracion de variable, una asignación, una llamada a una funcion o una estructura if, for o while
 def parse_statement():
@@ -147,7 +167,6 @@ def parse_statement():
     else:
         raise SyntaxError(f"Sentencia no válida: {token} posicion {current_pos}" )
 
-
 # Regla para declaración de variables. 
 def parse_var_decl():
     var_type = match("TYPE")[1]
@@ -156,7 +175,7 @@ def parse_var_decl():
     if current_token()[0] == "STRING":
         value = match("STRING")[1]
     else:
-        value = evaluar_expresion_prefija(recorrer_preorden(parse_expression())) # !!!
+        value = evaluar_expresion_prefija(recorrer_preorden(parse_expression()))
     match("SEMICOLON")
     tabla_simbolos[name] = {
         "tipo" : var_type,
@@ -217,24 +236,22 @@ def parse_for():
     match("LPAREN")
     
     # Declaración o asignación inicial
-    initializer = None
     if current_token()[0] == "TYPE":  # Declaración de variable
-        initializer = parse_var_decl()
-        tabla_simbolos.append(initializer)
+        parse_var_decl()
     elif current_token()[0] == "IDENTIFIER":  # Asignación a una variable existente
-        initializer = parse_assignment_or_call()
+        parse_assignment_or_call()
     
     # Condición del ciclo
-    condition = evaluar_expresion_prefija(recorrer_preorden(parse_expression()))
+    evaluar_expresion_prefija(recorrer_preorden(parse_expression()))
     match("SEMICOLON")
     
     # Actualización
-    update = parse_assignment_or_call()
+    parse_assignment_or_call()
     match("RPAREN")
     
     # Cuerpo del ciclo
     match("LBRACE")
-    body = parse_statements()
+    parse_statements()
     match("RBRACE")
 
     # eliminar la variable temporal del for (i)
@@ -250,47 +267,49 @@ def parse_while():
     body = parse_statements()
     match("RBRACE")
 
-# Regla para la asignacion de un valor a una variable o llamada a una funcion. 
+# Regla para (asignacion de un valor a una variable) o (llamada a una funcion). 
 def parse_assignment_or_call():
     name = match("IDENTIFIER")[1] 
     #Analisis semantico validacion en la tabla de simbolos
     if not esta_declarada(name):
         raise NameError(f"La variable '{name}' no ha sido declarada antes de su uso. pos {current_pos}")
+    
     #Asignar un nuevo valor a una var
     if current_token()[0] == "ASSIGN":
         match("ASSIGN")
-        value = evaluar_expresion_prefija(recorrer_preorden(parse_expression)) # !!!!
+        value = evaluar_expresion_prefija(recorrer_preorden(parse_expression())) 
         match("SEMICOLON")
         tabla_simbolos[name]["valor"] = value
+    
     #Llamada a una funcion
     elif current_token()[0] == "LPAREN":
         match("LPAREN")
-        parse_arguments(name) # !!!!!!!
+        parse_call_function_args(name) 
         match("RPAREN")
         match("SEMICOLON")
+    
     # i++
     elif current_token()[0] == "PLUS":
         match("PLUS")
         if current_token()[0] == "PLUS":
             match("PLUS")
-            tabla_simbolos[name]["value"] += 1   
-    raise SyntaxError(f"Error en asignación o llamada: {name} en la posicion {current_pos}")
-
-
-# Para en analisis semántico:
-def esta_declarada(variable):
-    return any(variable in entry for entry in tabla_simbolos)
+            tabla_simbolos[name]["valor"] += 1   
+    
+    else:
+        raise SyntaxError(f"Error en asignación o llamada: {name} en la posicion {current_pos}")
 
 #Analisis semantico: 
+
+def esta_declarada(variable):
+    return any(variable in entry for entry in tabla_simbolos)
 
 # Regla para analizar un expresion aritmetica o logica <----- Agregar el arbol semantico
 def parse_expression():
     left = parse_term()  # Parse el primer término
-    
     while current_token()[0] in ("PLUS", "MINUS", "GREATER_THAN", "LESS_THAN", "GREATER_EQUAL", "LESS_EQUAL", "EQUALS", "NOT_EQUAL"):  # O bien operador aritmético o lógico
         operator = current_token()[1]
         match(current_token()[0])   # Consume el operador
-        right = parse_term()  # Parse el siguiente término
+        right = parse_expression()  # Parse el siguiente término
         # Construir un nodo simplificado
         left = [operator, left, right]
 
@@ -299,7 +318,6 @@ def parse_expression():
 # Regla para analizar un término (factores con * o /).
 def parse_term():
     left = parse_factor()
-
     # Luego puede haber una secuencia de términos con operadores * o /
     while current_token() and current_token()[0] in ("MULT", "DIV_OP"):
         operator = current_token()[1]  # Consume el operador
@@ -314,28 +332,32 @@ def parse_term():
 # Regla para analizar un factor (identificador, número, string o expresión entre paréntesis).
 def parse_factor():
     left = current_token()
-    
+
+    # Retorna el valor del identificador directamente
     if left[0] == "IDENTIFIER":
         #Analisis semantico validacion en la tabla de simbolos
         if not esta_declarada(left[1]):
             raise NameError(f"La variable '{left[1]}' no ha sido declarada antes de su uso. pos {current_pos}") 
         match("IDENTIFIER") 
-        # Retorna el valor del identificador directamente
         return tabla_simbolos[left[1]]["valor"]
 
+    # Retorna directamente el numero
     elif left[0] == "NUMBER":
         value = float(match("NUMBER")[1])  # Consume el número y convierte a flotante
-        return value  # Retorna directamente el valor
+        return value  
     
+    # Retorna directamente el string
     elif left[0] == "STRING":
         value = match("STRING")[1]  # Consume la cadena
-        return value  # Retorna directamente el valor
+        return value  
     
+    # Consume ( manda a llamar a parse_expression() )
     elif left[0] == "LPAREN":
         match("LPAREN")  # Consume el paréntesis izquierdo
         expr = parse_expression()  # Analizamos la expresión entre paréntesis
         match("RPAREN")  # Consume el paréntesis derecho
         return expr
+    
     else:
         raise SyntaxError(f"Se esperaba un identificador, número, cadena o '(', pero se encontró {left} en la posición {current_pos}")
 
@@ -392,7 +414,7 @@ def evaluar_expresion_prefija(prefija):
 
 code = """
 //Definicion de una funcion del usuario
-void play_chord(int);
+void play_chord(time);
 
 main(){
     // Declaracion de varibles
@@ -402,17 +424,36 @@ main(){
 
     //Asignacion de expresiones aritmeticas
     int new_tempo = tempo + 20;
-    //duration = tempo / 2 + 1; //Esta fallando la division
+    duration = duration/2+1;
 
     //Llamada a funciones predefinidas
     set_tempo(new_tempo); // Ajusta el tempo a 140 BPM
     play(myNote, duration); // Reproduce la nota C4 durante 1 beat
 
+    //Estructura de control if-else
+    if(new_tempo > 130){
+        play("E4", 0.5); // Nota E4 si el tempo supera 130 BPM
+    }
+    else{
+        play("G4", 0.5); // Nota G4 en caso contrario
+    }
+    //Ciclo for
+    for(int i=0; i<4; i++){
+        play("A4", 0.25); // Reproduce A4 cuatro veces durante 0.25 beats
+    }
 
+    play_chord(duration); // Llama a la funcion para reproducir una acorde
+
+    //Ciclo while
+    int count = 3;
+    while(count > 0){
+        play("B4", 0.5); // Reproduce B4 tres veces
+        count = count - 1;
+    }
 }
 
 // Declaracion de una funcion definida por el usuario
-void play_chord(int dur){
+void play_chord(time dur){
     play("C4", dur);
     play("E4", dur);
     play("G4", dur);
