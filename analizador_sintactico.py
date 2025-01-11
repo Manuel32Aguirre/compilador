@@ -19,16 +19,19 @@ def match(expected_type):
     raise SyntaxError(f"Se esperaba {expected_type}, pero se encontró {token} en la posicion {current_pos}") 
 
 # Regla de producción inicial de la gramatica: programa completo.
+# Usar el contenido global en parse_program
 def parse_program():
+    global contenido  # Declarar el uso de la variable global contenido
     tabla_simbolos["main"] = {
         "argumentos": []
     }
-     # Leer prototipos de funciones
+    # Leer prototipos de funciones
     while current_token() and current_token()[1] != "main": 
         parse_function_prot()
     # Leer funciones
     while current_token():  
         parse_func()
+
 
 # Regla para prototipos de funciones.
 def parse_function_prot():

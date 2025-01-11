@@ -1,0 +1,45 @@
+//Definicion de una funcion del usuario
+void play_chord(time);
+
+main(){
+    // Declaracion de varibles
+    int tempo = 120; // Tempo inicial
+    note myNote = "C4"; // Nota inicial
+    time duration = 6.0; //Duracion en beats
+
+    //Asignacion de expresiones aritmeticas
+    int new_tempo = tempo + 20;
+    duration = duration/2+1;
+
+    //Llamada a funciones predefinidas
+    set_tempo(new_tempo); // Ajusta el tempo a 140 BPM
+    play(myNote, duration); // Reproduce la nota C4 durante 1 beat
+
+    //Estructura de control if-else
+    if(new_tempo > 130){
+        play("E4", 0.5); // Nota E4 si el tempo supera 130 BPM
+    }
+    else{
+        play("G4", 0.5); // Nota G4 en caso contrario
+    }
+    //Ciclo for
+    for(int i=0; i<4; i++){
+        play("A4", 0.25); // Reproduce A4 cuatro veces durante 0.25 beats
+    }
+
+    play_chord(duration); // Llama a la funcion para reproducir una acorde
+
+    //Ciclo while
+    int count = 3;
+    while(count > 0){
+        play("B4", 0.5); // Reproduce B4 tres veces
+        count = count - 1;
+    }
+}
+
+// Declaracion de una funcion definida por el usuario
+void play_chord(time dur){
+    play("C4", dur);
+    play("E4", dur);
+    play("G4", dur);
+}
