@@ -1,6 +1,9 @@
 import re
+errores_lex = []
+error_lex = 0
 
 def tokenize(code):
+    global error_lex
     # Expresión regular para dividir el código en tokens, ignorando comentarios
     token_specification = [
         ('NUMBER', r'\d+\.\d+|\d+'),   # Números
@@ -52,7 +55,8 @@ def tokenize(code):
             
             continue
         elif kind == 'MISMATCH':  # Errores de sintaxis
-            raise RuntimeError(f'{value!r} inesperado en la línea {line_num}')
+            error_lex = 1
+            errores_lex.append("Error léxico", f"{value!r} inesperado en la línea {line_num}")
         result.append((kind, value))
     return result
 

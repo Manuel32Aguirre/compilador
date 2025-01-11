@@ -1,8 +1,10 @@
-from analizador_lexico import tokenize
+from analizador_lexico import tokenize, errores_lex, error_lex
 # Variables globales para el parser
 current_pos = 0
 tokens = []
 tabla_simbolos = {}
+errores = []
+error = 0
 
 # Devuelve una tupla (token actual, gramatica) o None si se han procesado todos los tokens.
 def current_token():
@@ -16,7 +18,8 @@ def match(expected_type):
     if token and token[0] == expected_type:
         current_pos += 1
         return token
-    raise SyntaxError(f"Se esperaba {expected_type}, pero se encontró {token} en la posicion {current_pos}") 
+    error = 1
+    errores.append(("Error sintáctico", f"Se esperaba {expected_type}, pero se encontró {token} en la posicion {current_pos}"))
 
 # Regla de producción inicial de la gramatica: programa completo.
 def parse_program():
@@ -52,9 +55,9 @@ def parse_function_args_prot():
         arg_type = match("TYPE")[1]  # Tipo de dato
         if current_token()[0] == "IDENTIFIER":  # Nombre del argumento (opcional)
             arg_name = match("IDENTIFIER")[1]
-            args.append((arg_type, arg_name))
+            args.append(((arg_type, arg_name)))
         else:  # Argumento solo con tipo
-            args.append((arg_type, ""))
+            args.append(((arg_type, "")))
 
         if current_token()[0] == "COMMA":  # Más argumentos
             match("COMMA")
@@ -64,6 +67,7 @@ def parse_function_args_prot():
 
 # Regla para procesar los ARGUMENTOS de la LLAMADA a una función. (forzosamente solo el nombre del parametro)
 def parse_call_function_args(func):
+    global error
     if current_token()[0] == "RPAREN":  # Sin argumentos
         return
     i = 0
@@ -71,20 +75,22 @@ def parse_call_function_args(func):
         var = match("IDENTIFIER")[1] #identificador del argumento
         # validar que el tipo de la variable pasada por argumento coincida con el prototipo de la funcion y que la var exista en la tabla de simbolos
         if(esta_declarada(var)):
-            if(i<len(tabla_simbolos[func]["argumentos"])):            
-                if(tabla_simbolos[var]["tipo"] == tabla_simbolos[func]["argumentos"][i][0]):
-                    if current_token()[0] == "COMMA":  # Más argumentos
-                        match("COMMA")
-                        i+=1
-                    else:
-                        break
+            if(i >= len(tabla_simbolos[func]["argumentos"])): 
+                error = 1
+                errores.append(("Error semántico", f"En la llamada a la funcion: {func} en la pos: {current_pos}.\n\t\tEl prototipo indica que {func} recibe {len(tabla_simbolos[func]["argumentos"])} argumentos, pero se estan mandando {i+1} argumentos en esta llamada."))
+                break         
+            if(tabla_simbolos[var]["tipo"] == tabla_simbolos[func]["argumentos"][i][0]):
+                if current_token()[0] == "COMMA":  # Más argumentos
+                    match("COMMA")
+                    i+=1
                 else:
-                    raise SyntaxError(f"Error: en la llamada a la funcion: {func} en la pos: {current_pos}.\nEl prototipo indica que {func}({tabla_simbolos[func]["argumentos"]}) pero la variable {var} es de tipo: {tabla_simbolos[var]["tipo"]} ")
+                    break
             else:
-                raise SyntaxError(f"Error: en la llamada a la funcion: {func} en la pos: {current_pos}.\nEl prototipo indica que {func} recibe {len(tabla_simbolos[func]["argumentos"])} argumentos, pero se estan mandando {i+1} argumentos en esta llamada.")
+                error = 1
+                errores.append(("Error semántico", f"En la llamada a la funcion: {func} en la pos: {current_pos}.\n\t\tEl prototipo indica que {func}({tabla_simbolos[func]["argumentos"][i][0]}) pero la variable \"{var}\" es de tipo: {tabla_simbolos[var]["tipo"]}"))
         else: 
-            raise SyntaxError(f"Error: en la llamada a la funcion: {func} en la pos: {current_pos}.\nLa variable: {var} no ha sido declarada.")
-        
+            error = 1
+            errores.append(("Error semántico", f"En la llamada a la funcion: {func} en la pos: {current_pos}.\n\t\t\"La variable\" {var} no ha sido declarada."))
     return 
 
 # Regla para procesar los ARGUMENTOS del CUERPO de una funcion (forzosamente tipo e identif)
@@ -98,14 +104,15 @@ def parse_arguments_body_func(func):
         var = match("IDENTIFIER")[1]
 
         if(i < len(tabla_simbolos[func]["argumentos"]) and tabla_simbolos[func]["argumentos"][i][0] == tipo):
-            tabla_simbolos[var] = { # No esta validado usar el mismo nombre para una var en una funcion y en otra (variables temporales)
+            tabla_simbolos[var] = { # No esta validado usar el mismo nombre para una var en una funcion y en otra (variables temporales) 
                 "tipo" : tipo,
-                "valor" : 0 # asignar el valor pasado por parametro
+                "valor" : 0 # falta asignar el valor pasado por parametro (ejecución)
             }
+            tabla_simbolos[func]["argumentos"][i] = (tipo, var)  # Agrega el nombre a los argumentos de una funcion
         else:
-            raise SyntaxError(f"\nEn la llamada a la funcion: {func} en la pos: {current_pos}.\nEl prototipo indica que {func}({tabla_simbolos[func]["argumentos"]}) pero la variable {var} es de tipo: {tipo} ")
+            error = 1
+            errores.append(("Error semántico", f"En la llamada a la funcion: {func} en la pos: {current_pos}.\n\t\tEl prototipo indica que \"{func}\" recibe {tabla_simbolos[func]["argumentos"][0][0]}."))
         
-        # tabla_simbolos[func]["argumentos"][i] = (tipo, var)  # Agrega el nombre a los argumentos de una funcion
         if current_token()[0] == "COMMA":  # Más argumentos
             match("COMMA")
             i+=1
@@ -127,6 +134,7 @@ def parse_func():
 
 # Regla para argumentos de función.
 def parse_arguments(func):
+    global error
     args = parse_call_function_args(func)
     i = 0
     if len(args) == len(tabla_simbolos[func]["argumentos"]):
@@ -134,10 +142,12 @@ def parse_arguments(func):
             if a[0] == tabla_simbolos[func]["argumentos"][i][0]:
                 i+=1
             else: 
-                raise SyntaxError(f"Error en asignación o llamada: {func} en la posicion {current_pos}.\nSe esperaba{func}{tabla_simbolos[func]["argumentos"]}")
+                error = 1
+                errores.append(("Error semántico", f"en asignación o llamada: {func} en la posicion {current_pos}.\nSe esperaba{func}{tabla_simbolos[func]["argumentos"][0][0]}"))
         return
     else: 
-        raise SyntaxError(f"Error en asignación o llamada: {func} en la posicion {current_pos}.\nSe esperaba{func}{tabla_simbolos[func]["argumentos"]}")
+        error = 1
+        errores.append(("Error semántico", f"en asignación o llamada: {func} en la posicion {current_pos}.\nSe esperaba{func}{tabla_simbolos[func]["argumentos"][0][0]}"))
 
 # Regla para cada instrucción de una funcion
 def parse_statements():
@@ -146,6 +156,7 @@ def parse_statements():
 
 # Clasifica si una instrucciones es una declaracion de variable, una asignación, una llamada a una funcion o una estructura if, for o while
 def parse_statement():
+    global error
     """Regla para una sentencia: declaración, asignación o control."""
     token = current_token()
     if token[0] == "TYPE": 
@@ -165,7 +176,8 @@ def parse_statement():
     elif token[0] == "IDENTIFIER": 
         parse_assignment_or_call()
     else:
-        raise SyntaxError(f"Sentencia no válida: {token} posicion {current_pos}" )
+        error = 1
+        errores.append(("Error sintáctico", f"Sentencia no válida: {token} posicion {current_pos}"))
 
 # Regla para declaración de variables. 
 def parse_var_decl():
@@ -184,32 +196,37 @@ def parse_var_decl():
 
 # Gramatica play(myNote, duration);
 def parse_play():
+    global error
     match("PLAY")
     if current_token()[0] == "IDENTIFIER":
         match("IDENTIFIER")[1] 
     elif current_token()[0] == "STRING":
         match("STRING")[1]
     else:
-        raise SyntaxError(f"Error de sintaxis, se esperaba play(string, numero)")
+        error = 1
+        errores.append(("Error sintáctico", f"Se esperaba play(string, numero)"))
     match("COMMA")
     if current_token()[0] == "IDENTIFIER":
         match("IDENTIFIER")[1] 
     elif current_token()[0] == "NUMBER":
         match("NUMBER")[1]
     else:
-        raise SyntaxError(f"Error de sintaxis, se esperaba play(string, numero)")
+        error = 1
+        errores.append(("Error sintáctico", f"Se esperaba play(string, numero)"))
     match("RPAREN")
     match("SEMICOLON")
 
 # Gramatica set_tempo(new_tempo);
-def parse_set_tempo():    
+def parse_set_tempo():  
+    global error  
     match("SET_TEMPO")
     if current_token()[0] == "IDENTIFIER":
         match("IDENTIFIER")[1] 
     elif current_token()[0] == "NUMBER":
         match("NUMBER")[1]
     else:
-        raise SyntaxError(f"Error de sintaxis, se esperaba set_tempo(numero)")
+        error = 1
+        errores.append(("Error sintáctico", f"Se esperaba set_tempo(numero)"))
     match("RPAREN")
     match("SEMICOLON")
 
@@ -269,10 +286,12 @@ def parse_while():
 
 # Regla para (asignacion de un valor a una variable) o (llamada a una funcion). 
 def parse_assignment_or_call():
+    global error
     name = match("IDENTIFIER")[1] 
     #Analisis semantico validacion en la tabla de simbolos
     if not esta_declarada(name):
-        raise NameError(f"La variable '{name}' no ha sido declarada antes de su uso. pos {current_pos}")
+        error = 1
+        errores.append("Error semántico", f"La variable \"{name}\"' no ha sido declarada antes de su uso. En la pos {current_pos}")
     
     #Asignar un nuevo valor a una var
     if current_token()[0] == "ASSIGN":
@@ -296,7 +315,8 @@ def parse_assignment_or_call():
             tabla_simbolos[name]["valor"] += 1   
     
     else:
-        raise SyntaxError(f"Error en asignación o llamada: {name} en la posicion {current_pos}")
+        error = 1
+        errores.append("Error sintáctico", f"No se ha reconocido la asignación o llamada a la {name} en la posicion {current_pos}")
 
 #Analisis semantico: 
 
@@ -331,13 +351,15 @@ def parse_term():
 
 # Regla para analizar un factor (identificador, número, string o expresión entre paréntesis).
 def parse_factor():
+    global error
     left = current_token()
 
     # Retorna el valor del identificador directamente
     if left[0] == "IDENTIFIER":
         #Analisis semantico validacion en la tabla de simbolos
         if not esta_declarada(left[1]):
-            raise NameError(f"La variable '{left[1]}' no ha sido declarada antes de su uso. pos {current_pos}") 
+            error = 1
+            errores.append("Error semántico", f"La variable \"{left[1]}\" no ha sido declarada antes de su uso. pos {current_pos}")
         match("IDENTIFIER") 
         return tabla_simbolos[left[1]]["valor"]
 
@@ -359,7 +381,8 @@ def parse_factor():
         return expr
     
     else:
-        raise SyntaxError(f"Se esperaba un identificador, número, cadena o '(', pero se encontró {left} en la posición {current_pos}")
+        error=1
+        errores.append("Error sintáctico y semántico", f"Se esperaba un identificador, número, cadena o '(', pero se encontró {left} en la posición {current_pos}")
 
 def recorrer_preorden(nodo):
     if isinstance(nodo, list):
@@ -373,6 +396,7 @@ def recorrer_preorden(nodo):
         return str(nodo)
 
 def evaluar_expresion_prefija(prefija):
+    global error
     pila = []  # Pila para realizar los cálculos
 
     # Recorremos la expresión en orden inverso (de derecha a izquierda)
@@ -406,7 +430,8 @@ def evaluar_expresion_prefija(prefija):
             elif token == "!=":
                 pila.append(1.0 if operando1 != operando2 else 0.0)
         else:
-            raise ValueError(f"Símbolo no reconocido: {token} en la posicion {current_pos}")
+            error = 1
+            errores.append("Error léxico", f"Símbolo no reconocido: {token} en la posicion {current_pos}")
 
     # El resultado final estará en la cima de la pila
     return pila.pop()
@@ -466,6 +491,11 @@ tokens = tokenize(code)
 i = -1
 
 print("\n\t- - - - - ANALIZADOR LÉXICO - - - - -")
+if(error_lex == 1):
+    print("\n\tEl código presenta errores léxicos:")
+    for e in errores_lex:
+        print(f"\t{e[0]}\n\t\t{e[1]}")
+
 print("\t\tTIPO TOKEN\t\tTOKEN")
 for t in tokens:
     i += 1
@@ -477,5 +507,10 @@ current_pos = 0
 # Analizar el programa
 print("\n\t- - - - - ANALIZADOR SINTÁCTICO - - - - -")
 parse_program()
+if(error == 1):
+    print("\n\tEl código presenta errores:")
+    for e in errores:
+        print(f"\t{e[0]}\n\t\t{e[1]}")
+print("\n\tTabla de símbolos de las funciones y variables del código:")
 for simb in tabla_simbolos:
     print(f"\t{simb.ljust(10)}\t{tabla_simbolos[simb]}")
