@@ -9,10 +9,18 @@ error = 0
 # Devuelve una tupla (token actual, gramatica) o None si se han procesado todos los tokens.
 def current_token():
     global current_pos, tokens
+    print("Current_pos: ", current_pos)
+    print("tokens: ", tokens)
+    print("tabla de simbolos", tabla_simbolos)
+    print("errores",errores)
+    print("error",error)
+    print("Estamos en current_token")
+    
     return tokens[current_pos] if current_pos < len(tokens) else None
 
 # Verifica si el token en la posicion actual y el esperado hacen match, si si consume un token esperado y devuelve la tupla (token actual, gramatica).
 def match(expected_type):
+    print("Estamos en match")
     global current_pos # "global" permite modificar la vairable global current_pos
     token = current_token()
     if token and token[0] == expected_type:
@@ -22,7 +30,10 @@ def match(expected_type):
     errores.append(("Error sintáctico", f"Se esperaba {expected_type}, pero se encontró {token} en la posicion {current_pos}"))
 
 # Regla de producción inicial de la gramatica: programa completo.
-def parse_program():
+def parse_program(contenido):
+    print("Estamos en parse_program")
+    tokens = contenido
+    print("Los tokens son ", tokens)
     tabla_simbolos["main"] = {
         "argumentos": []
     }
@@ -35,6 +46,7 @@ def parse_program():
 
 # Regla para prototipos de funciones.
 def parse_function_prot():
+    print("Estamos en parse_function_prot")
     func_type = match("TYPE")[1]
     name = match("IDENTIFIER")[1]  # Nombre de la función
     match("LPAREN")
@@ -48,6 +60,7 @@ def parse_function_prot():
 
 # Regla para procesar los ARGUMENTOS del PROTOTIPO de una funcion. (tipo identif o solo tipo). Devuelve una tupla(tipo, nombre)
 def parse_function_args_prot():
+    print("Estamos en parse_function_args_prot")
     args = []
     if current_token()[0] == "RPAREN":  # Sin argumentos
         return args
@@ -67,6 +80,7 @@ def parse_function_args_prot():
 
 # Regla para procesar los ARGUMENTOS de la LLAMADA a una función. (forzosamente solo el nombre del parametro)
 def parse_call_function_args(func):
+    print("Estamos en parse_call_function_args")
     global error
     if current_token()[0] == "RPAREN":  # Sin argumentos
         return
@@ -95,6 +109,7 @@ def parse_call_function_args(func):
 
 # Regla para procesar los ARGUMENTOS del CUERPO de una funcion (forzosamente tipo e identif)
 def parse_arguments_body_func(func):
+    print("Estamos en parse_arguments_body_func")
     if current_token()[0] == "RPAREN":  # Sin argumentos
         return
     i = 0
@@ -122,6 +137,7 @@ def parse_arguments_body_func(func):
 
 # Regla de produccion para una funcion nombre(){...}
 def parse_func():
+    print("Estamos en parse_func")
     if current_token()[1] != "main":
         match("TYPE")[1]
     name = match("IDENTIFIER")[1]
@@ -134,6 +150,7 @@ def parse_func():
 
 # Regla para argumentos de función.
 def parse_arguments(func):
+    print("Estamos en parse_arguments")
     global error
     args = parse_call_function_args(func)
     i = 0
@@ -150,12 +167,14 @@ def parse_arguments(func):
         errores.append(("Error semántico", f"en asignación o llamada: {func} en la posicion {current_pos}.\nSe esperaba{func}{tabla_simbolos[func]["argumentos"][0][0]}"))
 
 # Regla para cada instrucción de una funcion
+print("Estamos en parse_statements")
 def parse_statements():
     while current_token() and current_token()[0] != "RBRACE": # mientras haya tokens por consumir y no se trate de '}' #¿Esto funciona para for(){expresiones}
         parse_statement()
 
 # Clasifica si una instrucciones es una declaracion de variable, una asignación, una llamada a una funcion o una estructura if, for o while
 def parse_statement():
+    print("Estamos en parse_statement")
     global error
     """Regla para una sentencia: declaración, asignación o control."""
     token = current_token()
@@ -181,6 +200,7 @@ def parse_statement():
 
 # Regla para declaración de variables. 
 def parse_var_decl():
+    print("Estamos en parse_var_decl")
     var_type = match("TYPE")[1]
     name = match("IDENTIFIER")[1]
     match("ASSIGN")
@@ -196,6 +216,7 @@ def parse_var_decl():
 
 # Gramatica play(myNote, duration);
 def parse_play():
+    print("Estamos en parse_play")
     global error
     match("PLAY")
     if current_token()[0] == "IDENTIFIER":
@@ -217,7 +238,8 @@ def parse_play():
     match("SEMICOLON")
 
 # Gramatica set_tempo(new_tempo);
-def parse_set_tempo():  
+def parse_set_tempo():
+    print("Estamos en parse_set_tempo")
     global error  
     match("SET_TEMPO")
     if current_token()[0] == "IDENTIFIER":
@@ -231,6 +253,7 @@ def parse_set_tempo():
     match("SEMICOLON")
 
 def parse_if():
+    print("Estamos en parse_if")
     """Regla para analizar un if."""
     match("IF")
     match("LPAREN")
@@ -249,6 +272,7 @@ def parse_if():
     
 # Regla para analizar un ciclo for.
 def parse_for():
+    print("Estamos en parse_for")
     match("FOR")
     match("LPAREN")
     
@@ -276,6 +300,7 @@ def parse_for():
 
 # Regla para analizar un ciclo while.
 def parse_while():
+    print("Estamos en parse_while")
     match("WHILE")
     match("LPAREN")
     condition = parse_expression()  # Analiza la condición correctamente
@@ -286,6 +311,7 @@ def parse_while():
 
 # Regla para (asignacion de un valor a una variable) o (llamada a una funcion). 
 def parse_assignment_or_call():
+    print("Estamos en parse_assignment_or_call")
     global error
     name = match("IDENTIFIER")[1] 
     #Analisis semantico validacion en la tabla de simbolos
@@ -321,10 +347,12 @@ def parse_assignment_or_call():
 #Analisis semantico: 
 
 def esta_declarada(variable):
+    print("Estamos en esta_declarada")
     return any(variable in entry for entry in tabla_simbolos)
 
 # Regla para analizar un expresion aritmetica o logica <----- Agregar el arbol semantico
 def parse_expression():
+    print("Estamos en parse_expression")
     left = parse_term()  # Parse el primer término
     while current_token()[0] in ("PLUS", "MINUS", "GREATER_THAN", "LESS_THAN", "GREATER_EQUAL", "LESS_EQUAL", "EQUALS", "NOT_EQUAL"):  # O bien operador aritmético o lógico
         operator = current_token()[1]
@@ -337,6 +365,7 @@ def parse_expression():
 
 # Regla para analizar un término (factores con * o /).
 def parse_term():
+    print("Estamos en parse_term")
     left = parse_factor()
     # Luego puede haber una secuencia de términos con operadores * o /
     while current_token() and current_token()[0] in ("MULT", "DIV_OP"):
@@ -351,6 +380,7 @@ def parse_term():
 
 # Regla para analizar un factor (identificador, número, string o expresión entre paréntesis).
 def parse_factor():
+    print("Estamos en parse_factor")
     global error
     left = current_token()
 
@@ -385,6 +415,7 @@ def parse_factor():
         errores.append("Error sintáctico y semántico", f"Se esperaba un identificador, número, cadena o '(', pero se encontró {left} en la posición {current_pos}")
 
 def recorrer_preorden(nodo):
+    print("Estamos en recorrer_preorden")
     if isinstance(nodo, list):
         # Nodo interno (operador)
         operador = nodo[0]
@@ -396,6 +427,7 @@ def recorrer_preorden(nodo):
         return str(nodo)
 
 def evaluar_expresion_prefija(prefija):
+    print("Estamos en evaluar_expresion_prefija")
     global error
     pila = []  # Pila para realizar los cálculos
 
@@ -437,7 +469,14 @@ def evaluar_expresion_prefija(prefija):
     return pila.pop()
 
 
-code = """
+
+
+
+
+
+
+"""
+
 //Definicion de una funcion del usuario
 void play_chord(time);
 
@@ -484,7 +523,7 @@ void play_chord(time dur){
     play("G4", dur);
 }
 
-"""
+
 
 # Tokenizar el código
 tokens = tokenize(code)
@@ -513,4 +552,4 @@ if(error == 1):
         print(f"\t{e[0]}\n\t\t{e[1]}")
 print("\n\tTabla de símbolos de las funciones y variables del código:")
 for simb in tabla_simbolos:
-    print(f"\t{simb.ljust(10)}\t{tabla_simbolos[simb]}")
+    print(f"\t{simb.ljust(10)}\t{tabla_simbolos[simb]}")"""

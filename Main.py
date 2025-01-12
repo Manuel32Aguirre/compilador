@@ -146,7 +146,7 @@ def manejar_click_directorio(event):
     mostrar_contenido_directorio(directorio_actual)
 
 def compilar():
-    global contenido  # Definir 'contenido' como global para usarlo dentro de parse_program
+    global contenido, error  # Definir 'contenido' como global para usarlo dentro de parse_program
     consola.config(state='normal')
     consola.delete('1.0', END)
     consola.config(state='disabled')
@@ -164,15 +164,22 @@ def compilar():
                 tokens = tokenize(contenido)
                 consola.insert(END, "Análisis léxico exitoso.\n")
                 consola.insert(END, "Tokens encontrados:\n")
+                
                 for idx, token in enumerate(tokens):
                     consola.insert(END, f"  {idx:2d} - {token[0]:<15} {token[1]}\n")
 
                 # Análisis sintáctico
                 consola.insert(END, "Iniciando análisis sintáctico...\n")
                 try:
-                    # Aquí ya puedes llamar a parse_program sin pasarle argumentos
-                    parse_program()  # Usará el contenido que es global
-                    consola.insert(END, "Análisis sintáctico exitoso.\n")
+                    current_pos = 0
+                    parse_program(tokens)
+                    if(error == 0):
+                        consola.insert(END, "Análisis sintáctico exitoso.\n")
+                    else:
+                        for error in errores:
+                            consola.insert(END, f"{error}\n")
+                    for simbolo in tabla_simbolos:
+                        consola.insert(END, f"{simbolo}\t{tabla_simbolos[simbolo]}\n")
                     consola.insert(END, "Árbol de análisis generado correctamente.\n")
                 except SyntaxError as se:
                     consola.insert(END, f"Error sintáctico: {se}\n")
@@ -183,7 +190,6 @@ def compilar():
                 consola.insert(END, f"Error durante la compilación: {e}\n")
             finally:
                 consola.config(state='disabled')
-
 
 # Interfaz principal
 root = Tk()
