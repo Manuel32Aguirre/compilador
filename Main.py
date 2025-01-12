@@ -192,7 +192,6 @@ def compilar():
             finally:
                 consola.config(state='disabled')
 
-# Interfaz principal
 root = Tk()
 root.title("COMPILADOR MUSICAL - V1.0")
 root.configure(bg='#1e1e1e')
@@ -223,9 +222,11 @@ btnGuardarArchivo.pack(side=LEFT, padx=10, pady=10)
 btnCompilar = Button(frameButtons, text='Compilar', bg=button_bg_color, fg=button_fg_color, font=('Arial', 10, 'bold'), command=compilar)
 btnCompilar.pack(side=LEFT, padx=10, pady=10)
 
+# PanedWindow principal
 frameMain = PanedWindow(root, bg=bg_color, sashwidth=5)
 frameMain.pack(fill=BOTH, expand=True)
 
+# Navegador de directorios
 frameDirectorio = Frame(frameMain, bg=bg_color)
 frameMain.add(frameDirectorio, width=250)
 
@@ -238,6 +239,7 @@ lista_directorio.pack(fill=BOTH, expand=True, padx=5, pady=5)
 lista_directorio.insert(END, "Directorio no seleccionado")
 lista_directorio.bind('<Double-Button-1>', manejar_click_directorio)
 
+# Notebook (Editor de texto)
 notebook = ttk.Notebook(frameMain)
 frameMain.add(notebook)
 
@@ -246,10 +248,14 @@ notebook.add(pestaña_inicial, text="Archivo 1")
 configurar_editor(pestaña_inicial)
 añadir_cerrar_pestaña(pestaña_inicial)
 
-frameConsole = Frame(root, bg=bg_color)
-frameConsole.pack(side=BOTTOM, fill=X)
+# Consola en la derecha
+frameConsole = Frame(frameMain, bg=bg_color)
+frameMain.add(frameConsole, width=200)
 
-consola = Text(frameConsole, bg='#252526', fg=fg_color, height=10, wrap='word', state='disabled')
-consola.pack(fill=X, padx=10, pady=10)
+labelConsola = Label(frameConsole, text="Consola", bg=bg_color, fg=fg_color, font=('Arial', 10, 'bold'))
+labelConsola.pack(fill=X)
+
+consola = Text(frameConsole, bg='#252526', fg=fg_color, wrap='word', state='disabled')
+consola.pack(fill=BOTH, expand=True, padx=10, pady=10)
 
 root.mainloop()
