@@ -1,6 +1,7 @@
 import os
 from tkinter import *
 from tkinter import ttk, filedialog, messagebox
+from analizador_lexico import *
 from analizador_sintactico import *
 
 # Función para actualizar la numeración de líneas
@@ -64,10 +65,6 @@ def manejar_cerrar_pestaña(event=None):
         cerrar_pestaña(pestaña_widget)
     except Exception as e:
         print(f"Error al intentar cerrar la pestaña: {e}")
-
-
-
-
 
 # Función para configurar un editor en una pestaña
 def configurar_editor(tab):
@@ -146,7 +143,6 @@ def manejar_click_directorio(event):
     mostrar_contenido_directorio(directorio_actual)
 
 def compilar():
-    global contenido, error  # Definir 'contenido' como global para usarlo dentro de parse_program
     consola.config(state='normal')
     consola.delete('1.0', END)
     consola.config(state='disabled')
@@ -162,25 +158,30 @@ def compilar():
             try:
                 # Análisis léxico
                 tokens = tokenize(contenido)
-                consola.insert(END, "Análisis léxico exitoso.\n")
+                if(error_lex == 0):
+                    consola.insert(END, "Análisis léxico exitoso.\n")
+                else:
+                    consola.insert(END, "Hay algunos errores en el código:\n")
+                    for e in errores_lex:
+                        consola.insert(END, f"\t{e[0]}\n\t\t{e[1]}\n\n")
+
                 consola.insert(END, "Tokens encontrados:\n")
-                
                 for idx, token in enumerate(tokens):
                     consola.insert(END, f"  {idx:2d} - {token[0]:<15} {token[1]}\n")
 
                 # Análisis sintáctico
                 consola.insert(END, "Iniciando análisis sintáctico...\n")
                 try:
-                    current_pos = 0
-                    parse_program(tokens)
-                    if(error == 0):
+                    error_sint, errores_sint = parse_program(tokens)
+                    if(error_sint == 0):
                         consola.insert(END, "Análisis sintáctico exitoso.\n")
                     else:
-                        for error in errores:
-                            consola.insert(END, f"{error}\n")
+                        for e in errores_sint:
+                            consola.insert(END, f"\t{e[0]}\n\t\t{e[1]}\n\n")
+
                     for simbolo in tabla_simbolos:
-                        consola.insert(END, f"{simbolo}\t{tabla_simbolos[simbolo]}\n")
-                    consola.insert(END, "Árbol de análisis generado correctamente.\n")
+                        consola.insert(END, f"{simbolo}\t\t{tabla_simbolos[simbolo]}\n")
+
                 except SyntaxError as se:
                     consola.insert(END, f"Error sintáctico: {se}\n")
                 except Exception as e:
